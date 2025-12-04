@@ -13,6 +13,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (data.lastQuery) queryInput.value = data.lastQuery;
   });
 
+  // ==========================================================
+  // CLEAN SUBTITLE NAME — removes garbage & makes it pretty
+  // ==========================================================
+  function cleanSubtitleName(name) {
+    if (!name) return null;
+
+    // Remove garbage characters
+    let cleaned = name.replace(/[^\w\s.\-()]/g, "");
+
+    // Normalize multiple spaces
+    cleaned = cleaned.replace(/\s+/g, " ").trim();
+
+    // Truncate long names
+    if (cleaned.length > 60) {
+      cleaned = cleaned.substring(0, 57) + "...";
+    }
+
+    return cleaned || null;
+  }
+
   async function runSearch() {
     const query = queryInput.value.trim();
     if (!query) {
@@ -20,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Show loading
+    // Show loading animation
     spinner.classList.remove("hidden");
     searchText.classList.add("hidden");
 
@@ -44,7 +64,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const subtitles = response.subtitles || [];
+      let subtitles = response.subtitles || [];
+      const queryLower = query.toLowerCase().trim();
+
+      // 1 — exact match
+      let exactMatches = subtitles.filter(sub => {
+        const fd = sub.attributes?.feature_details || {};
+        const title = (fd.title || "").toLowerCase().trim();
+        return title === queryLower;
+      });
+
+      // 2 — fallback to partial match
+      if (exactMatches.length === 0) {
+        exactMatches = subtitles.filter(sub => {
+          const fd = sub.attributes?.feature_details || {};
+          const title = (fd.title || "").toLowerCase();
+          return title.includes(queryLower);
+        });
+      }
+
+      subtitles = exactMatches;
+
+      // No results
       if (!subtitles.length) {
         resultsDiv.innerHTML = "";
         emptyState.classList.remove("hidden");
@@ -52,32 +93,46 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       resultsDiv.innerHTML = "";
+
+      // ==========================================================
+      // RENDER RESULTS
+      // ==========================================================
       subtitles.forEach((sub) => {
         const attrs = sub.attributes || {};
         const file = (attrs.files || [])[0];
-        const fileId = file && file.file_id;
+        const fileId = file?.file_id;
         const fd = attrs.feature_details || {};
+
         const title = fd.title || attrs.release || "Unknown title";
         const year = fd.year ? ` (${fd.year})` : "";
-        const subtitleName = attrs.release || (file && file.file_name) || "Unknown subtitle file";
+
+        // Clean names
+        const cleanRelease = cleanSubtitleName(attrs.release);
+        const cleanFile = cleanSubtitleName(file?.file_name);
+
+        const subtitleName = cleanRelease || cleanFile || "Subtitle File";
         const lang = attrs.language || "N/A";
 
         const item = document.createElement("div");
-        item.className = "subtitle-card p-4 bg-slate-800/50 border border-slate-700 rounded-xl transition-transform duration-200 relative";
+        item.className =
+          "subtitle-card p-4 bg-slate-800/50 border border-slate-700 rounded-xl transition-transform duration-200 relative";
 
-          item.innerHTML = `
+        item.innerHTML = `
           <p class="font-semibold text-white">${title}${year}</p>
           <p class="text-slate-300 text-xs mt-1">${subtitleName}</p>
           <p class="text-slate-400 text-sm">Language: ${lang}</p>
-          <button class="downloadBtn">
+
+          <button class="downloadBtn" title="Download">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-4l-4 4m0 0l-4-4m4 4V4">
+              </path>
             </svg>
-            Download
-            </button>
+          </button>
         `;
 
         const downloadBtn = item.querySelector(".downloadBtn");
+
         downloadBtn.addEventListener("click", () => {
           if (fileId) {
             chrome.runtime.sendMessage({ action: "downloadSubtitle", fileId });
