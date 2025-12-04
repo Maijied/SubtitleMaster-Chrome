@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Subtitle Downloader Pro",
+  "version": "1.0.2",
+
+  "author": "Maizied Hasan Majumder",
+  "homepage_url": "https://github.com/Maijied",
+
+  "description": "Professional subtitle search & download using OpenSubtitles API",
+  "permissions": ["storage", "downloads"],
+  "host_permissions": ["https://api.opensubtitles.com/*"],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Subtitle Downloader"
+  },
+
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+
+  "background": {
+    "service_worker": "background.js"
+  }
+}
